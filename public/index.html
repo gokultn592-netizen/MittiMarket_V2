@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MittiMart - 10-Min Farm Fresh Delivery</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Top Navigation -->
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="logo-area" onclick="showSection('products')">
+                <span class="logo-emoji">🌿</span>
+                <div class="logo-text">
+                    <h1>MittiMart</h1>
+                    <span class="delivery-time">⚡ Delivery in <strong>10 minutes</strong></span>
+                </div>
+            </div>
+            
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Search for 'Rice' or 'Farm Vegetables'..." oninput="debounceSearch()">
+            </div>
+            
+            <div class="nav-actions desktop-only">
+                <button class="login-btn" onclick="openAuthModal()" id="navAuth">Login</button>
+                <div class="user-chip hidden" id="userProfile" onclick="logout()">
+                    <span id="userName">User</span>
+                    <span>▼</span>
+                </div>
+                <!-- Role Specific Buttons -->
+                <button class="cart-btn buyer-only" onclick="openCart()">
+                    🛒 My Cart <span class="cart-badge" id="cartCount">0</span>
+                </button>
+                <button class="cart-btn seller-only hidden" onclick="showSection('dashboard', null)">
+                    📈 Dashboard
+                </button>
+                <button class="cart-btn delivery-only hidden" onclick="showSection('delivery', null)">
+                    🏍️ Orders Queue
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Location Bar -->
+    <div id="locationBar" class="location-bar" onclick="triggerLocationDetect()">
+        <div class="loc-left">
+            <span class="loc-pin">📍</span>
+            <div class="loc-info">
+                <div class="loc-area" id="locArea">Detecting location...</div>
+                <div class="loc-city" id="locCity">Allow GPS for faster delivery</div>
+            </div>
+        </div>
+        <div class="loc-right">
+            <div class="loc-status" id="locStatus">
+                <span class="status-dot pulsing" id="statusDot"></span>
+                <span id="statusText">Locating…</span>
+            </div>
+            <div class="loc-eta" id="locEta" style="display:none;">⏱️ <strong id="etaValue">—</strong> min away</div>
+        </div>
+    </div>
+
+    <main class="main-content">
+        
+        <div class="buyer-only" id="buyerHeroSection">
+            <!-- Hero Promotional Banner -->
+            <section class="hero-banner">
+                <div class="hero-content">
+                    <h2>Fresh from farm to your door</h2>
+                    <p>Support local Tamil Nadu farmers. Get authentic organic goods with <strong>lightning-fast delivery</strong>.</p>
+                    <div class="hero-tags">
+                        <span>✨ Super Fast</span>
+                        <span>🌿 100% Organic</span>
+                        <span>🚜 Directly Sourced</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Category Bubbles -->
+            <section class="category-scroll">
+                <div class="cat-list">
+                    <button class="cat-bubble active" onclick="filterProducts('', event)">All Items</button>
+                    <button class="cat-bubble" onclick="filterProducts('vegetables', event)">🥦 Veggies</button>
+                    <button class="cat-bubble" onclick="filterProducts('fruits', event)">🍎 Fruits</button>
+                    <button class="cat-bubble" onclick="filterProducts('dairy', event)">🥛 Dairy</button>
+                    <button class="cat-bubble" onclick="filterProducts('rice', event)">🌾 Rice</button>
+                    <button class="cat-bubble" onclick="filterProducts('oils', event)">🛢️ Oils</button>
+                    <button class="cat-bubble" onclick="filterProducts('millets', event)">🌾 Millets</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- Products Grid (Main View) -->
+        <section class="products-section" id="productsSection">
+            <h3 class="section-title buyer-only">Fresh Picks For You</h3>
+            <div class="grid blinkit-grid" id="productsGrid">
+                <!-- Javascript will inject cards here -->
+            </div>
+        </section>
+
+        <!-- Sellers List (Farmer Community Hub) -->
+        <section class="sellers-section hidden" id="sellersSection">
+            <h3 class="section-title">Farmer Community Hub</h3>
+            <p id="gpsStatus" style="color:var(--text-muted); font-size: 0.95rem; margin-top:-10px; margin-bottom: 15px;">Discover verified farmers & community leaders near you.</p>
+            
+            <!-- Farmer Search Tool -->
+            <div class="farmer-search-container" style="background:white; padding:15px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:20px; display:flex; gap:12px; flex-wrap:wrap;">
+                <input type="text" id="farmerSearchName" placeholder="Search by Farmer Name..." style="flex:2; min-width:180px; padding:10px; border-radius:8px; border:1px solid #ddd; font-family:inherit;">
+                <input type="text" id="farmerSearchDistrict" placeholder="Search by District..." style="flex:1; min-width:150px; padding:10px; border-radius:8px; border:1px solid #ddd; font-family:inherit;">
+                <button class="btn-primary" onclick="searchFarmers()" style="padding:10px 20px;">Search</button>
+                <button class="btn-secondary" onclick="fetchNearestSellers()" style="padding:10px 20px; border:1px solid #ddd; border-radius:8px;">Nearest</button>
+            </div>
+
+            <div id="sellersList" class="sellers-container"></div>
+        </section>
+
+        <!-- Seller Dashboard (Hidden by default) -->
+        <section class="seller-dashboard hidden" id="dashboardSection">
+            <h3 class="section-title" style="color:var(--brand-green); margin-bottom:15px;">👨‍🌾 Farmer Dashboard</h3>
+            
+            <div class="rider-stats-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom: 25px;">
+                <div style="background:var(--brand-green); color:white; padding:15px; border-radius:12px; text-align:center;">
+                    <h3 id="sellerWallet" style="font-size:1.4rem;">₹0</h3>
+                    <p style="font-size:0.8rem; opacity:0.9; margin-top:2px;">Sales Wallet</p>
+                </div>
+                <div style="background:var(--card-white); border:1px solid var(--border-color); padding:15px; border-radius:12px; text-align:center;">
+                    <h3 id="sellerPendingCount" style="font-size:1.4rem; color:var(--text-dark);">0</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Pending Orders</p>
+                </div>
+                <div style="background:var(--card-white); border:1px solid var(--border-color); padding:15px; border-radius:12px; text-align:center;">
+                    <h3 id="sellerDeliveredCount" style="font-size:1.4rem; color:var(--text-dark);">0</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Delivered</p>
+                </div>
+            </div>
+
+            <h3 class="section-title" style="font-size: 1.1rem; margin-bottom:12px;">Customer Orders</h3>
+            <div id="sellerOrdersList" style="margin-bottom:30px;">
+                <!-- JS will inject orders containing this seller's items -->
+            </div>
+
+            <div id="verificationStatusCard" style="margin-bottom:25px; display:none;">
+                <!-- JS will inject verification status here -->
+            </div>
+
+            <h3 class="section-title" style="font-size: 1.1rem; margin-bottom:12px;">Manage Catalog</h3>
+            <div class="dashboard-form-container glass-card mb-30" style="padding: 20px; background: white; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 30px;">
+                <h4 style="margin-bottom: 15px; color: var(--brand-green);">➕ Add New Product Listing</h4>
+                <form id="addProductForm" onsubmit="handleAddNewProduct(event)" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <input type="text" id="prodName" placeholder="Product Name (e.g. Pure Mustard Oil)" required style="flex:1; padding: 12px; border-radius:8px; border:1px solid #ddd; font-family:inherit;">
+                        <input type="number" id="prodPrice" placeholder="Price (₹)" required style="width: 120px; padding: 12px; border-radius:8px; border:1px solid #ddd; font-family:inherit;">
+                    </div>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <select id="prodCategory" required style="flex:1; padding: 12px; border-radius:8px; border:1px solid #ddd; font-family:inherit;">
+                            <option value="vegetables">Vegetables</option>
+                            <option value="fruits">Fruits</option>
+                            <option value="dairy">Dairy</option>
+                            <option value="rice">Rice</option>
+                            <option value="oils">Oils</option>
+                            <option value="millets">Millets</option>
+                            <option value="sweeteners">Sweeteners</option>
+                            <option value="earthenware">Earthenware</option>
+                        </select>
+                        <input type="text" id="prodUnit" placeholder="Unit (e.g. 1 kg, 500g)" required style="width: 150px; padding: 12px; border-radius:8px; border:1px solid #ddd; font-family:inherit;">
+                        <input type="number" id="prodStock" placeholder="Stock Qty" required style="width: 120px; padding: 12px; border-radius:8px; border:1px solid #ddd; font-family:inherit;">
+                    </div>
+                    <div style="display: flex; flex-direction:column; gap:5px;">
+                        <label for="prodImageUpload" style="font-size:0.9rem; font-weight:600; color:var(--text-muted);">Product Image (Optional):</label>
+                        <input type="file" id="prodImageUpload" accept="image/*" style="padding: 10px; border-radius:8px; border:1px dashed #bbb; background:#fafafa; font-family:inherit; cursor:pointer;">
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: max-content; padding: 10px 30px;">Publish Product</button>
+                </form>
+            </div>
+
+            <h3 class="section-title">My Active Listings</h3>
+            <div class="grid blinkit-grid" id="sellerProductsGrid">
+                <!-- Javascript will inject seller specific cards here -->
+            </div>
+        </section>
+
+        <!-- Delivery Partner Dashboard (Hidden by default) -->
+        <section class="delivery-dashboard hidden" id="deliverySection">
+            <h3 class="section-title" style="color:var(--brand-green); margin-bottom:15px;">🏍️ Rider Dashboard</h3>
+
+            <div class="rider-stats-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom: 25px;">
+                <div style="background:var(--brand-green); color:white; padding:15px; border-radius:12px; text-align:center;">
+                    <h3 id="riderWallet" style="font-size:1.4rem;">₹0</h3>
+                    <p style="font-size:0.8rem; opacity:0.9; margin-top:2px;">Wallet</p>
+                </div>
+                <div style="background:var(--card-white); border:1px solid var(--border-color); padding:15px; border-radius:12px; text-align:center;">
+                    <h3 id="riderPendingCount" style="font-size:1.4rem; color:var(--text-dark);">0</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Pending</p>
+                </div>
+                <div style="background:var(--card-white); border:1px solid var(--border-color); padding:15px; border-radius:12px; text-align:center;">
+                    <h3 id="riderDeliveredCount" style="font-size:1.4rem; color:var(--text-dark);">0</h3>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Delivered</p>
+                </div>
+            </div>
+
+            <h3 class="section-title" style="font-size: 1.1rem; margin-bottom:12px;">My Active Route</h3>
+            <div id="activeDeliveriesList" style="margin-bottom:25px;">
+                <!-- Javascript injects active deliveries here -->
+            </div>
+
+            <h3 class="section-title" style="font-size: 1.1rem; margin-bottom:12px;">Available Deliveries</h3>
+            <div id="pendingOrdersList" style="background:var(--card-white); border-radius:12px; padding:15px; border:1px solid var(--border-color); margin-bottom:25px;">
+                <!-- Javascript injects pending orders with ETA -->
+            </div>
+
+            <h3 class="section-title" style="font-size: 1.1rem; margin-bottom:12px;">Delivery History</h3>
+            <div id="completedOrdersList">
+                <!-- Javascript injects delivered history -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Sticky Bottom Cart Summary -->
+    <div class="sticky-cart-strip hidden buyer-only-flex" id="stickyCartStrip" onclick="openCart()">
+        <div class="strip-left">
+            <div class="strip-icon">🛍️</div>
+            <div class="strip-details">
+                <span id="stripItemCount">0 items</span>
+                <strong id="stripTotal">₹0</strong>
+            </div>
+        </div>
+        <div class="strip-right">
+            View Cart ➔
+        </div>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav">
+        <!-- Common Home -->
+        <button class="b-nav-item active buyer-only" onclick="showSection('products', this)">
+            <span class="icon">🏠</span><span class="label">Home</span>
+        </button>
+        <!-- Buyer only -->
+        <button class="b-nav-item buyer-only" onclick="showSection('sellers', this)">
+            <span class="icon">👨‍🌾</span><span class="label">Farmers</span>
+        </button>
+        <button class="b-nav-item buyer-only" onclick="openCart()">
+            <div class="cart-nav-icon">
+                <span class="icon">🛒</span><span class="badge" id="mobileCartBadge">0</span>
+            </div>
+            <span class="label">Cart</span>
+        </button>
+
+        <!-- Seller only Nav -->
+        <button class="b-nav-item seller-only hidden" onclick="showSection('dashboard', this)">
+            <span class="icon">📈</span><span class="label">Dashboard</span>
+        </button>
+
+        <!-- Delivery only Nav -->
+        <button class="b-nav-item delivery-only hidden" onclick="showSection('delivery', this)">
+            <span class="icon">🏍️</span><span class="label">Orders</span>
+        </button>
+
+        <!-- Common Account -->
+        <button class="b-nav-item" onclick="openAuthModal()">
+            <span class="icon">👤</span><span class="label">Account</span>
+        </button>
+    </nav>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Action successful</div>
+
+    <!-- Cart Modal -->
+    <div id="cartModal" class="modal hidden">
+        <div class="modal-content side-drawer">
+            <div class="drawer-header">
+                <h2>Your Cart</h2>
+                <span class="close" onclick="closeCartModal()">&times;</span>
+            </div>
+            <div class="drawer-body" id="cartItems"></div>
+            <div class="drawer-footer">
+                <div class="bill-details">
+                    <div class="bill-row"><span>Item Total</span><span id="cartSubtotal">₹0</span></div>
+                    <div class="bill-row"><span>Delivery Fee (Calculated on ETA)</span><span id="cartDelivery">₹0</span></div>
+                    <div class="bill-row total-row"><span>Grand Total</span><span id="cartTotal">₹0</span></div>
+                </div>
+                <!-- Dynamic Checkout Button / Message -->
+                <div id="checkoutArea">
+                    <button class="btn-checkout" id="checkoutBtn" onclick="checkout()">Checkout & Assign Rider</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal hidden">
+        <div class="modal-content center-modal">
+            <span class="close" onclick="closeAuthModal()" style="position:absolute; right:15px; top:15px; font-size:24px;">&times;</span>
+            <div class="auth-tabs">
+                <button class="tab active" id="tabLogin" onclick="switchAuthTab('login')">Login</button>
+                <button class="tab" id="tabRegister" onclick="switchAuthTab('register')">Sign Up</button>
+            </div>
+            <form id="authForm" onsubmit="handleAuth(event)">
+                <div id="registerFields" class="hidden">
+                    <input type="text" id="authName" placeholder="Full Name">
+                    <select id="authRole" onchange="toggleFarmerFields()">
+                        <option value="buyer">I am a Buyer</option>
+                        <option value="seller">I am a Farmer/Seller</option>
+                        <option value="delivery">I am a Delivery Partner</option>
+                    </select>
+                </div>
+                <div id="farmerAddressFields" class="hidden" style="margin-bottom:15px; display:flex; flex-direction:column; gap:10px;">
+                    <input type="text" id="authVillage" placeholder="Village (e.g. Kodakkal)">
+                    <input type="text" id="authDistrict" placeholder="District (e.g. Vellore)">
+                </div>
+                <input type="tel" id="authPhone" placeholder="Mobile Number (10 digits)" required>
+                <input type="password" id="authPassword" placeholder="Password" required>
+                <button type="submit" class="btn-primary full-width" id="submitAuth">Login</button>
+                <div id="authError" class="error-msg" style="color:var(--accent-red); margin-top:10px; font-size:0.9rem;"></div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
