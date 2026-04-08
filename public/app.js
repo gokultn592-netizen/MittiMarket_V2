@@ -179,26 +179,11 @@ function renderLocation(loc) {
 function updateLocUI({ area, city, status, eta, distKm }) {
     const el = (id) => document.getElementById(id);
 
-    if (el('locArea'))   el('locArea').textContent   = area;
-    if (el('locCity'))   el('locCity').textContent   = city;
-    if (el('statusDot')) el('statusDot').className   = 'status-dot ' + (status === 'active' ? 'online' : status === 'locating' ? 'pulsing' : 'offline');
+    if (el('locArea')) el('locArea').textContent = area;
+    if (el('locCity')) el('locCity').textContent = city;
 
-    const statusLabels = {
-        active: '✅ Delivery available',
-        'out-of-zone': '🚧 Outside delivery zone',
-        locating: '🔄 Locating…',
-        denied: '❌ GPS denied',
-        unavailable: '📶 GPS unavailable'
-    };
-    if (el('statusText')) el('statusText').textContent = statusLabels[status] || status;
-
-    if (eta && el('locEta')) {
-        el('locEta').style.display = 'flex';
-        el('etaValue').textContent = eta;
-        if (distKm) el('locEta').title = distKm + ' km from depot';
-    } else if (el('locEta')) {
-        el('locEta').style.display = 'none';
-    }
+    // Optional: Log status for debugging, but UI is now minimal address-only
+    console.log(`[Location] Status: ${status}, Area: ${area}`);
 }
 
 function loadLocationCache() {
@@ -220,18 +205,40 @@ function saveLocationCache(loc) {
 
 async function saveDb() {
     const payload = JSON.stringify(db);
-    localStorage.setItem('mittimart_db', payload); // instant local backup
+    localStorage.setItem('mittimart_db', payload); 
     try {
         const res = await fetch(API_BASE + '/api/sync', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: payload
         });
-        if (!res.ok) console.error('Sync failed: HTTP', res.status);
+        if (res.ok) {
+            console.log('Sync success');
+            await refreshDb(); 
+        } else {
+            console.error('Sync failed: HTTP', res.status);
+        }
     } catch(e) {
-        console.error('Sync to C++ backend failed (localStorage saved):', e);
+        console.error('Sync failed:', e);
     }
 }
+
+async function refreshDb() {
+    try {
+        const res = await fetch(API_BASE + '/api/db');
+        if (res.ok) {
+            db = await res.json();
+            updateUI();
+            if (currentSectionId === 'products') fetchProducts();
+            if (currentSectionId === 'dashboard') renderDashboardProducts();
+            console.log("Database refreshed from cloud");
+        }
+    } catch(e) {
+        console.warn("Refresh failed:", e);
+    }
+}
+
+let currentSectionId = 'products';
 
 // Failsafe: send data via beacon when user closes/refreshes the tab
 window.addEventListener('beforeunload', () => {
@@ -270,6 +277,7 @@ window.showSection = function(id, btnElement) {
     }
 
     document.getElementById(id + 'Section').classList.remove('hidden');
+    currentSectionId = id;
 
     if (btnElement) {
         const bottomNavs = document.querySelectorAll('.mobile-bottom-nav .b-nav-item');
@@ -357,7 +365,13 @@ function renderProducts(products, containerId) {
     grid.innerHTML = '';
     
     if (products.length === 0) {
-        grid.innerHTML = '<p style="text-align:center;width:100%;padding:40px;">No items found matching your criteria.</p>';
+        const isFiltering = currentSearch || currentCategory;
+        const msg = isFiltering 
+            ? 'No items found matching your search. Try a different keyword.' 
+            : 'Welcome! Our farmers are currently restocking. Please check back soon.';
+        grid.innerHTML = '<div style="text-align:center;width:100%;padding:60px 20px;color:#666;">' +
+                         '<span style="font-size:3rem;display:block;margin-bottom:10px;">🍃</span>' +
+                         '<p>' + msg + '</p></div>';
         return;
     }
 
@@ -961,11 +975,18 @@ window.handleAddNewProduct = async function(event) {
         });
         if (!res.ok) throw new Error();
         
-        const savedProd = await res.json();
+        const result = await res.json();
+        const savedProd = result.product || result;
+        
+        // Ensure the saved product has the format expected by the frontend
+        if (!savedProd.id && savedProd._id) savedProd.id = savedProd._id;
+        if (!savedProd.img && savedProd.image_url) savedProd.img = savedProd.image_url;
+        
         db.products.push(savedProd);
         
         document.getElementById('addProductForm').reset();
         showToast("Product successfully published!");
+        await refreshDb(); 
         renderDashboardProducts();
     } catch(e) {
         showToast("Failed to publish. Check your connection.");
