@@ -1,44 +1,49 @@
-const Order = require('../models/Order');
-const Product = require('../models/Product');
+const User = require('../models/User');
+const Farmer = require('../models/Farmer');
 
-exports.createOrder = async (req, res) => {
+exports.register = async (req, res) => {
     try {
-        const { user_id, product_id, quantity } = req.body;
-
-        const product = await Product.findById(product_id);
-        if (!product) return res.status(404).json({ message: 'Product not found' });
-
-        if (product.stock < quantity) {
-            return res.status(400).json({ message: 'Insufficient stock' });
+        const { name, email, password, phone, role, address, location } = req.body || {};
+        
+        if (!name || !email || !password || !role) {
+            return res.status(400).json({ success: false, message: 'Missing required fields: name, email, password, and role are required.' });
         }
 
-        const order = new Order({
-            user_id,
-            product_id,
-            farmer_id: product.farmer_id,
-            quantity,
-            total_price: product.price * quantity
+        let user = await User.findOne({ email });
+        if (user) return res.status(400).json({ success: false, message: 'User already exists' });
+
+        user = new User({ name, email, password, phone, role });
+        await user.save();
+
+        if (role === 'seller' || role === 'farmer') {
+            const farmer = new Farmer({
+                name,
+                address,
+                location,
+                user_id: user._id
+            });
+            await farmer.save();
+        }
+
+        res.status(201).json({ 
+            success: true, 
+            message: 'User registered successfully', 
+            user: { id: user._id, name: user.name, email: user.email, role: user.role } 
         });
-
-        await order.save();
-
-        // Update stock
-        product.stock -= quantity;
-        await product.save();
-
-        res.status(201).json({ message: 'Order placed successfully', order });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error(`[AuthRegister Error] ${error.message}`);
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-exports.getAdminOrders = async (req, res) => {
+exports.login = async (req, res) => {
     try {
-        const orders = await Order.find()
-            .populate('user_id', 'name email')
-            .populate('product_id', 'name price')
-            .populate('farmer_id', 'name address');
-        res.json(orders);
+        const { email, password } = req.body;
+        const user = await User.findOne({ email, password });
+        
+        if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+
+        res.json({ message: 'Login successful', user });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
