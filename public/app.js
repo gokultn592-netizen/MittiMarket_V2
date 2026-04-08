@@ -805,8 +805,8 @@ window.handleAuth = async function(e) {
             });
             
             if(!res.ok) {
-                const errorData = await res.json().catch(() => ({ error: "Server Error (404/500)" }));
-                throw new Error(errorData.error || `Registration failed (${res.status})`);
+                const errorData = await res.json().catch(() => ({ message: "Server connection failed" }));
+                throw new Error(errorData.message || errorData.error || `Registration failed (${res.status})`);
             }
             
             const data = await res.json();
@@ -819,8 +819,8 @@ window.handleAuth = async function(e) {
             });
 
             if(!res.ok) {
-                const errorData = await res.json().catch(() => ({ error: "Invalid Credentials or Server Error" }));
-                throw new Error(errorData.error || `Login failed (${res.status})`);
+                const errorData = await res.json().catch(() => ({ message: "Invalid Credentials or Server Error" }));
+                throw new Error(errorData.message || errorData.error || `Login failed (${res.status})`);
             }
 
             const data = await res.json();
@@ -840,6 +840,7 @@ window.handleAuth = async function(e) {
         showToast("Logged in successfully");
     } catch (err) {
         document.getElementById('authError').innerText = err.message;
+        console.error("[Auth Error]", err);
     }
 };
 
