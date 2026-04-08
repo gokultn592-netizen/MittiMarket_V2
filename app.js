@@ -16,11 +16,20 @@ const app = express();
 // Connect to Database
 connectDB();
 
+// Basic Request Logging
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
+
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// API Health Check
+app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -34,14 +43,14 @@ app.post('/api/sync', compatibilityController.syncDb);
 app.get('/api/admin/farmers', compatibilityController.getAdminFarmers);
 app.patch('/api/admin/farmers/:id/verify', compatibilityController.verifyFarmer);
 
-// Root route
-app.get('/', (req, res) => {
-    res.send('MittiMart API is running...');
-});
-
-// 404 Handler for missing API routes
-app.use('/api/*', (req, res) => {
-    res.status(404).json({ message: `API route ${req.originalUrl} not found` });
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error(`[CRITICAL ERROR] ${err.stack}`);
+    res.status(500).json({ 
+        success: false, 
+        message: 'Internal Server Error',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined 
+    });
 });
 
 // Global Error Handling Middleware
