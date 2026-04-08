@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const connectDB = require('./config/db');
 require('dotenv').config();
 
@@ -18,39 +19,39 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Main logical routes
+// API Routes
 app.use('/auth', authRoutes);
 app.use('/products', productRoutes);
 app.use('/orders', orderRoutes);
 app.use('/farmers', farmerRoutes);
 
-// Compatibility API Routes
+// Compatibility / Legacy Support API
 app.get('/api/db', compatibilityController.getFullDb);
 app.post('/api/sync', compatibilityController.syncDb);
 app.get('/api/admin/farmers', compatibilityController.getAdminFarmers);
 app.patch('/api/admin/farmers/:id/verify', compatibilityController.verifyFarmer);
-
-// Admin alias for orders
-app.use('/admin/orders', (req, res, next) => {
-    req.url = '/admin'; 
-    next();
-}, orderRoutes);
-
-// Serve static assets if public folder exists
-const path = require('path');
-const fs = require('fs');
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Root route
 app.get('/', (req, res) => {
     res.send('MittiMart API is running...');
 });
 
-// Error Handling Middleware
+// 404 Handler for missing API routes
+app.use('/api/*', (req, res) => {
+    res.status(404).json({ message: `API route ${req.originalUrl} not found` });
+});
+
+// Global Error Handling Middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ message: 'Something went wrong!' });
+    console.error(`[Error] ${err.stack}`);
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'Internal Server Error',
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
 });
 
 module.exports = app;
