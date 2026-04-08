@@ -7,10 +7,8 @@ let currentSearch = '';
 // Cloud Sync State (Starts empty, populated from MongoDB Atlas)
 let db = { products: [], users: [], carts: {}, wishlists: {}, orders: [], nextOrderId: 1001, nextUserId: 501, nextProductId: 100 };
 
-// API Base URL Configuration for Static Hosting
-const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-    ? '' 
-    : 'https://mitti-mart-v1-xi.vercel.app';
+// API Base URL Configuration (Relative for Vercel Hosting)
+const API_BASE = '';
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
